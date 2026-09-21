@@ -5,6 +5,14 @@ All notable changes to HOL Guard will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.1](https://github.com/hashgraph-online/hol-guard/compare/v3.3.0...v3.3.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **ci:** stabilize native wheel validation ([#3046](https://github.com/hashgraph-online/hol-guard/issues/3046)) ([ff4de55](https://github.com/hashgraph-online/hol-guard/commit/ff4de55fc4071c57f31f7521a32a33ce65e93911))
+* **dashboard:** reuse quick-apply bulk controls on extension detail and explain locked search ([#3043](https://github.com/hashgraph-online/hol-guard/issues/3043)) ([7f3ee58](https://github.com/hashgraph-online/hol-guard/commit/7f3ee58bf246342f8c3438f9f9b54430b53dd2af))
+
 ## [3.3.0](https://github.com/hashgraph-online/hol-guard/compare/v3.2.0...v3.3.0) (2026-09-21)
 
 
