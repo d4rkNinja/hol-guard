@@ -444,7 +444,7 @@ def _validate_manifest_digests(report: Mapping[str, object], manifest: Mapping[s
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _load_object(path: Path) -> dict[str, object]:
