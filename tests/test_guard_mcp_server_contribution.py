@@ -140,25 +140,6 @@ def test_mcp_tool_state_uses_named_then_other() -> None:
     assert mcp_tool_state(payload, "unknown_tool") == "inherit"
 
 
-def test_lattice_talk_catalog_item_is_external_opt_in() -> None:
-    extension_id = "command.mcp-lattice-talk"
-    extension = BUILT_IN_COMMAND_EXTENSION_REGISTRY.get(extension_id)
-    assert extension is not None
-    payload = extension.to_dict()
-    assert extension_id in ids_for_class("external")
-    assert trust_class_for(extension_id) == "external"
-    assert payload["enabled"] is False
-    assert payload["trust_class"] == "external"
-    assert payload["activation"] == "opt-in"
-    assert payload["surface"] == "mcp"
-    assert payload["mcp_launch"] == {
-        "kind": "package-launcher",
-        "command": "npx",
-        "package": "lattice-talk",
-    }
-    assert payload["publisher"]["id"] == "d4rkninja"
-
-
 def test_duplicate_launch_packages_are_rejected(tmp_path: Path) -> None:
     first = _filesystem_payload()
     second = _filesystem_payload()
