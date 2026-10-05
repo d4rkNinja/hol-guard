@@ -10,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from codex_plugin_scanner.guard.daemon.hook_worker import HookWorker, HookWorkerUnsupported
+from codex_plugin_scanner.guard.daemon.hook_worker import HookWorker
 from codex_plugin_scanner.guard.native_decision_receipt import canonical_receipt_bytes
 from codex_plugin_scanner.guard.store import GuardStore
 
 
-def _edge(harness: str, *, url: str = "https://example.test") -> dict[str, object]:
+def _edge(harness: str, *, url: str = "https://example.test", action_type: str = "network") -> dict[str, object]:
     return {
         "schema": "guard-hook-edge-result.v2",
         "authority": "rust",
@@ -26,10 +26,11 @@ def _edge(harness: str, *, url: str = "https://example.test") -> dict[str, objec
             "schema": "guard-pre-tool-result.v1",
             "version": 1,
             "authority": "rust",
+            "action": {"action_type": action_type},
             "decision": "deny",
             "policy_action": "review",
             "minimum_action": "review",
-            "reason_code": "native_network_review",
+            "reason_code": "native_pre_tool_unknown_review" if action_type == "unknown" else "native_network_review",
             "reason": "HOL Guard requires review before this network action can execute.",
         },
     }
@@ -62,7 +63,9 @@ def _test_request_digest(harness: str, payload: object, workspace: object) -> st
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, edge: dict[str, object]) -> tuple[HookWorker, GuardStore]:
+def _worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, edge: dict[str, object], *, ask: bool = True
+) -> tuple[HookWorker, GuardStore]:
     monkeypatch.setattr(
         "codex_plugin_scanner.guard.daemon.hook_worker.native_mode",
         lambda: "auto",
@@ -109,6 +112,10 @@ def _worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, edge: dict[str, obj
         review_raw_hook_native,
     )
     store = GuardStore(tmp_path / "guard-home")
+    if ask:
+        from codex_plugin_scanner.guard.config import update_guard_settings
+
+        update_guard_settings(store.guard_home, {"blocked_request_mode": "ask"})
     store.upsert_runtime_state(
         session_id="native-review",
         daemon_host="127.0.0.1",
@@ -258,17 +265,14 @@ def test_native_review_does_not_raise_worker_unsupported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     worker, _store = _worker(tmp_path, monkeypatch, _edge("codex"))
-    try:
-        worker.review_http_payload(
-            payload={"hook_event_name": "PreToolUse", "tool_input": {"url": "https://example.test"}},
-            params={},
-            default_harness="codex",
-            home_dir=tmp_path / "home",
-            guard_home=tmp_path / "guard-home",
-            workspace=tmp_path / "workspace",
-        )
-    except HookWorkerUnsupported:
-        pytest.fail("native review must queue an approval instead of raising HookWorkerUnsupported")
+    worker.review_http_payload(
+        payload={"hook_event_name": "PreToolUse", "tool_input": {"url": "https://example.test"}},
+        params={},
+        default_harness="codex",
+        home_dir=tmp_path / "home",
+        guard_home=tmp_path / "guard-home",
+        workspace=tmp_path / "workspace",
+    )
 
 
 def test_native_review_queue_failure_fails_closed(

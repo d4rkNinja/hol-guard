@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 from pathlib import Path
@@ -36,10 +37,10 @@ from codex_plugin_scanner.guard.runtime.extension_trust import (
     mapped_ids,
     trust_class_for,
 )
+from tests.command_extension_contracts import enable_local_admin_extension_layer
 from tests.native_command_test_support import (
     extract_sensitive_tool_action_request_native_test as extract_sensitive_tool_action_request,
 )
-from tests.command_extension_contracts import enable_local_admin_extension_layer
 from tests.native_command_test_support import real_native_command_evaluation
 
 _NOODLE = "noodle request run users/get --collection ./my-api --env staging"
@@ -79,21 +80,14 @@ def _disable_layer(extension_id: str) -> ExtensionControlLayer:
 
 
 def test_trust_map_covers_every_builtin_extension() -> None:
+    """Verify trust map covers every builtin extension."""
     registry_ids = {extension.extension_id for extension in BUILT_IN_COMMAND_EXTENSION_REGISTRY.extensions}
     assert mapped_ids() == registry_ids
-    assert ids_for_class("external") == {
-        "command.blitcp",
-        "command.mcp-filesystem",
-        "command.mcp-instapods",
-        "command.mcp-lattice-talk",
-        "command.noodle",
-        "command.ollama",
-        "command.probe",
-        "command.remote.essh",
-        "command.repo2nb",
-        "command.skill-sunset",
-        "command.uivoid",
-    }
+    # Expected membership comes from authored policy, never generated Python.
+    root = Path(__file__).resolve().parents[1]
+    authored = json.loads((root / "contracts/extensions/trust-class-map.v1.json").read_bytes())
+    for trust_class, expected_ids in authored["classes"].items():
+        assert ids_for_class(trust_class) == set(expected_ids)
     assert trust_class_for("command.git") == "first-party"
     assert trust_class_for("command.cloud.aws") == "trusted-library"
     assert trust_class_for("command.cloud.azure") == "trusted-library"
