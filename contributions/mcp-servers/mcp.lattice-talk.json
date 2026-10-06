@@ -17,8 +17,7 @@
   "launch": {
     "kind": "package-launcher",
     "command": "npx",
-    "package": "lattice-talk",
-    "packageVersion": "0.1.18"
+    "package": "lattice-talk"
   },
   "riskClasses": ["external-agent-messaging", "external-shared-state-write"],
   "tools": [
@@ -37,7 +36,7 @@
     { "name": "memory_list", "state": "inherit" },
     { "name": "memory_notes", "state": "inherit" },
     { "name": "trace_context", "state": "inherit" },
-    { "name": "other", "state": "inherit" }
+    { "name": "other", "state": "review" }
   ],
   "referenceUrls": [
     "https://github.com/d4rkNinja/lattice-talk",
@@ -45,6 +44,6 @@
   ],
   "saferAlternatives": [
     "Keep messaging, membership changes, message cursor updates, and memory writes on review unless agents on this device need those shared-state mutations without confirmation.",
-    "Configure npx with lattice-talk@0.1.18; unpinned or mismatched releases do not receive this contribution's defaults."
+    "Configure npx with the reviewed lattice-talk@0.1.18 release. The current catalog matches package names, not versions; unknown tools require review."
   ]
 }
