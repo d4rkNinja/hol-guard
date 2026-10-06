@@ -2,7 +2,7 @@
 
 pub(crate) fn valid_package_pin(command: &str, package: &str, version: &str) -> bool {
     if !matches!(command, "npx" | "npm" | "pnpm" | "yarn" | "bunx")
-        || package.len() > 256
+        || package.len() > 214
         || version.len() > 64
     {
         return false;
@@ -61,16 +61,20 @@ fn default_package_source_environment(keys: &serde_json::Value) -> bool {
             let key = key.trim().to_ascii_lowercase();
             !(matches!(
                 key.as_str(),
-                "npm_config_registry"
-                    | "npm_config_userconfig"
-                    | "npm_config_globalconfig"
-                    | "npm_config_prefix"
-                    | "yarn_registry"
-                    | "yarn_npm_registry_server"
-                    | "yarn_rc_filename"
-                    | "bun_config_registry"
-                    | "bun_install_registry"
-            ) || (key.starts_with("npm_config_") && key.ends_with(":registry")))
+                "home"
+                    | "userprofile"
+                    | "homedrive"
+                    | "homepath"
+                    | "appdata"
+                    | "localappdata"
+                    | "xdg_config_home"
+                    | "xdg_config_dirs"
+                    | "node_options"
+                    | "node_path"
+                    | "path"
+            ) || key.starts_with("npm_config_")
+                || key.starts_with("yarn_")
+                || key.starts_with("bun_"))
         })
 }
 

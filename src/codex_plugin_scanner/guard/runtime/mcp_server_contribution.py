@@ -283,6 +283,7 @@ def validate_mcp_contribution(payload: Mapping[str, object], *, filename: str = 
         if "packageVersion" in launch and (
             launch.get("command") not in _NPM_LAUNCHERS
             or not isinstance(launch.get("package"), str)
+            or len(str(launch["package"])) > 214
             or _NPM_PACKAGE.fullmatch(str(launch["package"])) is None
         ):
             raise ValueError(f"{filename} package version requires an npm launcher and canonical package name")

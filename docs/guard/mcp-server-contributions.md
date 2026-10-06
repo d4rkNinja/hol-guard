@@ -40,12 +40,16 @@ Package-launched contributions use `launch.kind: package-launcher`, an allowlist
 For an exact reviewed stable npm release, add `launch.packageVersion`, for example
 `"package": "lattice-talk", "packageVersion": "0.1.18"`. The runnable example then
 uses `npx -y lattice-talk@0.1.18`. Pins support npm launchers (`npx`, `npm`, `pnpm`,
-`yarn`, and `bunx`) and canonical three-part versions, not ranges or tags. Selection
+`yarn`, and `bunx`), canonical npm names of at most 214 characters, and canonical
+three-part versions, not ranges or tags. Selection
 requires the configured server's matching package, version, launcher, stdio
 transport, and default package source. Missing version evidence, a tool-name alias
 alone, a custom registry, or a mismatched release cannot select pinned defaults.
-Explicit registry or registry-configuration environment settings also exclude a
-pinned match. Native namespace/name matching still applies tightening-only
+Conflicting artifact and configured transport evidence also excludes a match.
+Configured home/config-directory, executable-search/preload, or npm/yarn/bun
+environment overrides exclude a pinned match, including indirect registry
+redirection through a different `.npmrc`. Ordinary server settings such as
+`REDIS_URL` remain compatible. Native namespace/name matching still applies tightening-only
 `review` and `block` floors when a raw harness hook lacks version evidence; it
 never supplies an allow decision or treats that hook as an exact pinned match.
 Unversioned existing contributions retain their name-based matching. A version

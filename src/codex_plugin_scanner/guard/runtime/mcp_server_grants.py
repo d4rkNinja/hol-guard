@@ -114,6 +114,8 @@ def _matches_package_version(artifact: GuardArtifact, launch: Mapping[str, objec
         and identity.get("package_version") == version
         and identity.get("package_source") == "default"
         and identity.get("transport") == "stdio"
+        and isinstance(artifact.transport, str)
+        and artifact.transport.strip().lower() == "stdio"
         and _default_package_source_environment(identity)
         and _mcp_identity_tool_name(artifact) is not None
     )
@@ -128,16 +130,18 @@ def _default_package_source_environment(identity: Mapping[str, object]) -> bool:
             return False
         normalized = key.strip().lower()
         if normalized in {
-            "npm_config_registry",
-            "npm_config_userconfig",
-            "npm_config_globalconfig",
-            "npm_config_prefix",
-            "yarn_registry",
-            "yarn_npm_registry_server",
-            "yarn_rc_filename",
-            "bun_config_registry",
-            "bun_install_registry",
-        } or (normalized.startswith("npm_config_") and normalized.endswith(":registry")):
+            "home",
+            "userprofile",
+            "homedrive",
+            "homepath",
+            "appdata",
+            "localappdata",
+            "xdg_config_home",
+            "xdg_config_dirs",
+            "node_options",
+            "node_path",
+            "path",
+        } or normalized.startswith(("npm_config_", "yarn_", "bun_")):
             return False
     return True
 

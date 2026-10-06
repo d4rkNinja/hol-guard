@@ -61,6 +61,21 @@ def test_pin_requires_canonical_npm_package_name(package):
         validate_mcp_contribution(value)
 
 
+@pytest.mark.parametrize("package", ["a" * 215, "@scope/" + "a" * 208])
+def test_pin_rejects_npm_names_over_214_characters(package):
+    value = payload()
+    value["launch"]["package"] = package
+    with pytest.raises(ValueError, match="canonical package"):
+        validate_mcp_contribution(value)
+
+
+@pytest.mark.parametrize("package", ["a" * 214, "@scope/" + "a" * 207])
+def test_pin_accepts_npm_names_at_214_character_boundary(package):
+    value = payload()
+    value["launch"]["package"] = package
+    validate_mcp_contribution(value)
+
+
 def test_exact_pin_matches_and_projects_runnable_example(monkeypatch):
     value = payload()
     validate_mcp_contribution(value)
@@ -122,6 +137,21 @@ def test_missing_identity_evidence_does_not_match(monkeypatch, missing):
         "YARN_RC_FILENAME",
         "BUN_CONFIG_REGISTRY",
         "BUN_INSTALL_REGISTRY",
+        "HOME",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "XDG_CONFIG_HOME",
+        "XDG_CONFIG_DIRS",
+        "BUN_INSTALL",
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "PATH",
+        "NPM_CONFIG_CACHE",
+        "YARN_CACHE_FOLDER",
+        "BUN_INSTALL_CACHE_DIR",
     ],
 )
 def test_configured_registry_environment_cannot_select_reviewed_pin(monkeypatch, key):
@@ -143,6 +173,35 @@ def test_configured_registry_environment_cannot_select_reviewed_pin(monkeypatch,
         server_identity=identity,
     )
     assert grants.matching_mcp_contribution(tool) is None
+
+
+@pytest.mark.parametrize("transport", ["http", "sse", "", None])
+def test_pinned_identity_cannot_override_conflicting_artifact_transport(monkeypatch, transport):
+    monkeypatch.setattr(grants, "load_mcp_contribution_payloads", lambda: (payload(),))
+    assert grants.matching_mcp_contribution(replace(artifact(), transport=transport)) is None
+
+
+def test_non_source_server_environment_remains_compatible(monkeypatch):
+    value = payload()
+    monkeypatch.setattr(grants, "load_mcp_contribution_payloads", lambda: (value,))
+    identity = build_mcp_server_identity(
+        config_path="",
+        command="npx",
+        args=(f"{PACKAGE}@1.2.3",),
+        transport="stdio",
+        env={"REDIS_URL": "redis://localhost:6379"},
+    )
+    tool = build_tool_call_artifact(
+        harness="codex",
+        server_name="filesystem",
+        tool_name="write_file",
+        source_scope="project",
+        config_path=".mcp.json",
+        transport="stdio",
+        server_identity=identity,
+    )
+    assert grants.matching_mcp_contribution(tool) == value
+    assert grants.matching_mcp_contribution(replace(tool, transport=" STDIO ")) == value
 
 
 @pytest.mark.parametrize("package", [PACKAGE.upper(), f" {PACKAGE}", f"{PACKAGE} "])

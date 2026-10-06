@@ -109,6 +109,50 @@ fn native_package_pin_rejects_tags_ranges_and_other_ecosystems() {
 }
 
 #[test]
+fn native_package_pin_enforces_npm_name_length() {
+    for package in ["a".repeat(214), format!("@scope/{}", "a".repeat(207))] {
+        assert!(valid_package_pin("npx", &package, "0.1.18"));
+    }
+    for package in ["a".repeat(215), format!("@scope/{}", "a".repeat(208))] {
+        assert!(!valid_package_pin("npx", &package, "0.1.18"));
+        let mut value = source();
+        value["launch"]["package"] = json!(package);
+        assert!(
+            compile_addition_with_mcp(&[], &[&serde_json::to_vec(&value).unwrap()], TRUST).is_err()
+        );
+    }
+}
+
+#[test]
+fn native_package_pin_rejects_environment_redirection() {
+    let mut identity = json!({
+        "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
+        "package_source": "default", "transport": "stdio", "env_keys": ["REDIS_URL"]
+    });
+    assert!(configured_package_pin(&identity).is_some());
+    for key in [
+        "HOME",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "XDG_CONFIG_HOME",
+        "XDG_CONFIG_DIRS",
+        "BUN_INSTALL",
+        "NODE_OPTIONS",
+        "NODE_PATH",
+        "PATH",
+        "NPM_CONFIG_CACHE",
+        "YARN_CACHE_FOLDER",
+        "BUN_INSTALL_CACHE_DIR",
+    ] {
+        identity["env_keys"] = json!([key]);
+        assert!(configured_package_pin(&identity).is_none(), "{key}");
+    }
+}
+
+#[test]
 fn native_pinned_defaults_require_the_same_complete_server_identity() {
     let identity = json!({
             "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
