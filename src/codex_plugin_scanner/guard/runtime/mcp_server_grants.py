@@ -110,11 +110,36 @@ def _matches_package_version(artifact: GuardArtifact, launch: Mapping[str, objec
     return (
         isinstance(command, str)
         and package_launcher_name(command) == launch.get("command")
+        and identity.get("package_name") == launch.get("package")
         and identity.get("package_version") == version
         and identity.get("package_source") == "default"
-        and _mcp_transport(artifact) == "stdio"
+        and identity.get("transport") == "stdio"
+        and _default_package_source_environment(identity)
         and _mcp_identity_tool_name(artifact) is not None
     )
+
+
+def _default_package_source_environment(identity: Mapping[str, object]) -> bool:
+    keys = identity.get("env_keys")
+    if not isinstance(keys, list) or len(keys) > 256:
+        return False
+    for key in keys:
+        if not isinstance(key, str):
+            return False
+        normalized = key.strip().lower()
+        if normalized in {
+            "npm_config_registry",
+            "npm_config_userconfig",
+            "npm_config_globalconfig",
+            "npm_config_prefix",
+            "yarn_registry",
+            "yarn_npm_registry_server",
+            "yarn_rc_filename",
+            "bun_config_registry",
+            "bun_install_registry",
+        } or (normalized.startswith("npm_config_") and normalized.endswith(":registry")):
+            return False
+    return True
 
 
 def _matches_remote_http_contribution(artifact: GuardArtifact, launch: Mapping[str, object]) -> bool:

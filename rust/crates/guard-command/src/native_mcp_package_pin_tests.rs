@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::native_command_controls::CompiledNativeCommandControls;
 use crate::native_command_program::{source::compile_addition_with_mcp, NativeCommandProgram};
-use crate::native_mcp_package_pin::valid_package_pin;
+use crate::native_mcp_package_pin::{configured_package_pin, valid_package_pin};
 
 const FILESYSTEM: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -27,8 +27,18 @@ fn source() -> Value {
 }
 
 fn controls() -> CompiledNativeCommandControls {
+    controls_for_state("block")
+}
+
+fn controls_for_state(state: &str) -> CompiledNativeCommandControls {
+    let mut source = source();
+    for tool in source["tools"].as_array_mut().unwrap() {
+        if tool["name"] == "write_file" {
+            tool["state"] = json!(state);
+        }
+    }
     let output =
-        compile_addition_with_mcp(&[], &[&serde_json::to_vec(&source()).unwrap()], TRUST).unwrap();
+        compile_addition_with_mcp(&[], &[&serde_json::to_vec(&source).unwrap()], TRUST).unwrap();
     assert_eq!(
         output.catalog[0]["permissions"][0]["example_command"],
         "npx -y fixture-mcp@0.1.18"
@@ -100,47 +110,130 @@ fn native_package_pin_rejects_tags_ranges_and_other_ecosystems() {
 
 #[test]
 fn native_pinned_defaults_require_the_same_complete_server_identity() {
-    let controls = controls();
+    let identity = json!({
+            "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
+            "package_source": "default", "transport": "stdio", "env_keys": []
+    });
+    assert_eq!(
+        configured_package_pin(&identity).as_deref(),
+        Some("npx:fixture-mcp@0.1.18")
+    );
+    for (field, value) in [
+        ("package_version", json!("latest")),
+        ("package_version", Value::Null),
+        ("package_source", json!("registry=unreviewed")),
+        ("transport", json!("http")),
+        ("package_name", json!("FIXTURE-MCP")),
+        ("package_name", json!(" fixture-mcp")),
+        ("env_keys", Value::Null),
+        ("env_keys", json!([false])),
+    ] {
+        let mut candidate = identity.clone();
+        candidate[field] = value;
+        assert!(configured_package_pin(&candidate).is_none(), "{field}");
+    }
+    for key in [
+        "NPM_CONFIG_REGISTRY",
+        "npm_config_registry",
+        "NPM_CONFIG_USERCONFIG",
+        "NPM_CONFIG_GLOBALCONFIG",
+        "NPM_CONFIG_PREFIX",
+        "npm_config_@example:registry",
+        "YARN_REGISTRY",
+        "YARN_NPM_REGISTRY_SERVER",
+        "YARN_RC_FILENAME",
+        "BUN_CONFIG_REGISTRY",
+        "BUN_INSTALL_REGISTRY",
+    ] {
+        let mut candidate = identity.clone();
+        candidate["env_keys"] = json!([key]);
+        assert!(configured_package_pin(&candidate).is_none(), "{key}");
+    }
+    let mut candidate = identity;
+    candidate["env_keys"] = json!(["REDIS_URL"]);
+    assert!(configured_package_pin(&candidate).is_some());
+}
+
+#[test]
+fn native_pinned_tightening_floors_survive_missing_or_mismatched_identity() {
+    for state in ["block", "review"] {
+        let controls = controls_for_state(state);
+        let mut payload = json!({
+            "tool_name": "mcp__pinned-fixture__write_file", "tool_input": {}
+        });
+        for identity in [
+            Value::Null,
+            json!({
+                "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.17",
+                "package_source": "default", "transport": "stdio", "env_keys": []
+            }),
+        ] {
+            payload["mcp_server_identity"] = identity;
+            assert!(observed(&controls, &payload));
+            let result = crate::pretool::evaluate_pre_tool_envelope_with_extensions(
+                "claude-code",
+                "PreToolUse",
+                &payload,
+                Some(&controls),
+                None,
+            );
+            assert_eq!(result.minimum_action, state);
+        }
+    }
+}
+
+#[test]
+fn native_pinned_nontightening_defaults_require_exact_configured_identity() {
+    let controls = controls_for_state("allow");
     let mut payload = json!({
         "tool_name": "mcp__pinned-fixture__write_file", "tool_input": {},
         "mcp_server_identity": {
-            "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
-            "package_source": "default", "transport": "stdio"
-        }
-    });
+        "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
+        "package_source": "default", "transport": "stdio", "env_keys": []
+    }});
     assert!(observed(&controls, &payload));
     let mut conflicting = payload.clone();
     conflicting["metadata"] = json!({"mcp_server_identity": {
         "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.17",
-        "package_source": "default", "transport": "stdio"
+        "package_source": "default", "transport": "stdio", "env_keys": []
     }});
     assert!(!observed(&controls, &conflicting));
-    for (field, value) in [
-        ("package_version", json!("0.1.17")),
-        ("package_version", json!("latest")),
-        ("package_version", Value::Null),
-        ("command", json!("bunx")),
-        ("package_source", json!("registry=unreviewed")),
-        ("transport", json!("http")),
-        ("package_name", json!("other")),
-    ] {
-        let mut candidate = payload.clone();
-        candidate["mcp_server_identity"][field] = value;
-        assert!(!observed(&controls, &candidate), "{field}");
-    }
+    payload["mcp_server_identity"]["package_version"] = json!("0.1.17");
+    assert!(!observed(&controls, &payload));
     payload
         .as_object_mut()
         .unwrap()
         .remove("mcp_server_identity");
+    for arguments in [
+        json!({"package_name": "fixture-mcp", "package_version": "0.1.18"}),
+        json!({"package": "npx:fixture-mcp@0.1.18"}),
+        json!({"mcp_server_identity": {
+            "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
+            "package_source": "default", "transport": "stdio", "env_keys": []
+        }}),
+    ] {
+        payload["tool_input"] = arguments;
+        assert!(!observed(&controls, &payload));
+    }
     assert!(!observed(&controls, &payload));
-    // Do not synthesize a pin by pairing unrelated argument fields.
-    payload["tool_input"] = json!({"package_name": "fixture-mcp", "package_version": "0.1.18"});
-    assert!(!observed(&controls, &payload));
-    payload["tool_input"] = json!({"package": "npx:fixture-mcp@0.1.18"});
-    assert!(!observed(&controls, &payload));
-    payload["tool_input"] = json!({"mcp_server_identity": {
-        "command": "npx", "package_name": "fixture-mcp", "package_version": "0.1.18",
-        "package_source": "default", "transport": "stdio"
-    }});
-    assert!(!observed(&controls, &payload));
+}
+
+#[test]
+fn native_pinned_floor_stays_inert_without_local_admin_enable() {
+    let controls = controls();
+    let payload = json!({"tool_name": "mcp__pinned-fixture__write_file", "tool_input": {}});
+    assert!(observed(&controls, &payload));
+    let result = crate::pretool::evaluate_pre_tool_envelope_with_extensions(
+        "claude-code",
+        "PreToolUse",
+        &payload,
+        None,
+        None,
+    );
+    assert!(!result.command_extensions.is_some_and(|batch| {
+        batch
+            .permission_observations
+            .iter()
+            .any(|row| row.extension_id == "command.mcp-pinned-fixture")
+    }));
 }

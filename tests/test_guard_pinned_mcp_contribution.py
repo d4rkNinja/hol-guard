@@ -92,7 +92,9 @@ def test_pin_does_not_transfer_to_other_launcher_registry_or_transport(monkeypat
     assert grants.matching_mcp_contribution(artifact(command=command, extra=extra, transport=transport)) is None
 
 
-@pytest.mark.parametrize("missing", ["package_version", "package_source", "command", "mcp_tool_identity"])
+@pytest.mark.parametrize(
+    "missing", ["package_version", "package_source", "command", "transport", "env_keys", "mcp_tool_identity"]
+)
 def test_missing_identity_evidence_does_not_match(monkeypatch, missing):
     monkeypatch.setattr(grants, "load_mcp_contribution_payloads", lambda: (payload(),))
     tool = artifact()
@@ -103,6 +105,52 @@ def test_missing_identity_evidence_does_not_match(monkeypatch, missing):
         identity = dict(metadata["mcp_server_identity"])
         identity.pop(missing)
         metadata["mcp_server_identity"] = identity
+    assert grants.matching_mcp_contribution(replace(tool, metadata=metadata)) is None
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "NPM_CONFIG_REGISTRY",
+        "npm_config_registry",
+        "NPM_CONFIG_USERCONFIG",
+        "NPM_CONFIG_GLOBALCONFIG",
+        "NPM_CONFIG_PREFIX",
+        "npm_config_@example:registry",
+        "YARN_REGISTRY",
+        "YARN_NPM_REGISTRY_SERVER",
+        "YARN_RC_FILENAME",
+        "BUN_CONFIG_REGISTRY",
+        "BUN_INSTALL_REGISTRY",
+    ],
+)
+def test_configured_registry_environment_cannot_select_reviewed_pin(monkeypatch, key):
+    monkeypatch.setattr(grants, "load_mcp_contribution_payloads", lambda: (payload(),))
+    identity = build_mcp_server_identity(
+        config_path="",
+        command="npx",
+        args=(f"{PACKAGE}@1.2.3",),
+        transport="stdio",
+        env={key: "https://unreviewed.example"},
+    )
+    tool = build_tool_call_artifact(
+        harness="codex",
+        server_name="filesystem",
+        tool_name="write_file",
+        source_scope="project",
+        config_path=".mcp.json",
+        transport="stdio",
+        server_identity=identity,
+    )
+    assert grants.matching_mcp_contribution(tool) is None
+
+
+@pytest.mark.parametrize("package", [PACKAGE.upper(), f" {PACKAGE}", f"{PACKAGE} "])
+def test_pinned_identity_requires_canonical_package_spelling(monkeypatch, package):
+    monkeypatch.setattr(grants, "load_mcp_contribution_payloads", lambda: (payload(),))
+    tool = artifact()
+    metadata = dict(tool.metadata)
+    metadata["mcp_server_identity"] = {**metadata["mcp_server_identity"], "package_name": package}
     assert grants.matching_mcp_contribution(replace(tool, metadata=metadata)) is None
 
 

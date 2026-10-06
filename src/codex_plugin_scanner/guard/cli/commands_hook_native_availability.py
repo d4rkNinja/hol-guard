@@ -40,6 +40,9 @@ def _availability_response_is_deny(response: Mapping[str, object]) -> bool:
         decision = hook_output.get("decision")
         if isinstance(decision, str):
             return decision.strip().lower() in {"deny", "block", "review"}
+    decision = response.get("decision")
+    if isinstance(decision, str) and decision.strip().lower() in {"block", "deny", "review"}:
+        return True
     policy_action = response.get("policy_action")
     if isinstance(policy_action, str):
         return policy_action.strip().lower() in {
@@ -88,6 +91,8 @@ def _native_unavailable_exit_code(
 
         return zcode_hook_process_exit(policy_action="block" if deny else "allow", event_name=event_name)
     if harness == "devin":
+        return 2 if deny else 0
+    if harness == "hermes":
         return 2 if deny else 0
     return 1 if deny else 0
 

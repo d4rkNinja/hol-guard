@@ -44,6 +44,10 @@ uses `npx -y lattice-talk@0.1.18`. Pins support npm launchers (`npx`, `npm`, `pn
 requires the configured server's matching package, version, launcher, stdio
 transport, and default package source. Missing version evidence, a tool-name alias
 alone, a custom registry, or a mismatched release cannot select pinned defaults.
+Explicit registry or registry-configuration environment settings also exclude a
+pinned match. Native namespace/name matching still applies tightening-only
+`review` and `block` floors when a raw harness hook lacks version evidence; it
+never supplies an allow decision or treats that hook as an exact pinned match.
 Unversioned existing contributions retain their name-based matching. A version
 pin is not an integrity proof or a saved execution approval.
 

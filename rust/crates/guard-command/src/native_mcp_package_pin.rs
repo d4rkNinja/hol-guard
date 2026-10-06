@@ -41,11 +41,37 @@ pub(crate) fn configured_package_pin(identity: &serde_json::Value) -> Option<Str
     let launcher = crate::mcp_decision::package_launcher_name(command)?;
     if identity.get("package_source")?.as_str()? != "default"
         || identity.get("transport")?.as_str()? != "stdio"
+        || !default_package_source_environment(identity.get("env_keys")?)
         || !valid_package_pin(&launcher, package, version)
     {
         return None;
     }
     Some(format!("{launcher}:{package}@{version}"))
+}
+
+fn default_package_source_environment(keys: &serde_json::Value) -> bool {
+    let Some(keys) = keys.as_array() else {
+        return false;
+    };
+    keys.len() <= 256
+        && keys.iter().all(|key| {
+            let Some(key) = key.as_str() else {
+                return false;
+            };
+            let key = key.trim().to_ascii_lowercase();
+            !(matches!(
+                key.as_str(),
+                "npm_config_registry"
+                    | "npm_config_userconfig"
+                    | "npm_config_globalconfig"
+                    | "npm_config_prefix"
+                    | "yarn_registry"
+                    | "yarn_npm_registry_server"
+                    | "yarn_rc_filename"
+                    | "bun_config_registry"
+                    | "bun_install_registry"
+            ) || (key.starts_with("npm_config_") && key.ends_with(":registry")))
+        })
 }
 
 fn package_character(byte: u8) -> bool {
