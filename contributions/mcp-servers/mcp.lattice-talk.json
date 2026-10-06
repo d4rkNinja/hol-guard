@@ -3,7 +3,7 @@
   "id": "mcp.lattice-talk",
   "version": "1.0.0",
   "name": "Lattice Talk MCP",
-  "description": "Cross-harness agent message bus over Redis — shared sessions, rooms, direct messages, and memory for AI coding agents. Direct messages, room posts, room creation, and memory writes default to review; read and discovery tools inherit. Off until you turn it on.",
+  "description": "Cross-harness agent message bus over Redis — shared sessions, rooms, direct messages, and memory for AI coding agents. Messaging, session and room membership changes, cursor updates, and memory writes default to review; read-only discovery tools inherit. Off until you turn it on.",
   "trustClass": "external",
   "activation": "opt-in",
   "publisher": {
@@ -17,7 +17,8 @@
   "launch": {
     "kind": "package-launcher",
     "command": "npx",
-    "package": "lattice-talk"
+    "package": "lattice-talk",
+    "packageVersion": "0.1.18"
   },
   "riskClasses": ["external-agent-messaging", "external-shared-state-write"],
   "tools": [
@@ -26,10 +27,10 @@
     { "name": "create_room", "state": "review" },
     { "name": "memory_set", "state": "review" },
     { "name": "memory_note", "state": "review" },
-    { "name": "join_session", "state": "inherit" },
-    { "name": "join_room", "state": "inherit" },
-    { "name": "leave_session", "state": "inherit" },
-    { "name": "pull_messages", "state": "inherit" },
+    { "name": "join_session", "state": "review" },
+    { "name": "join_room", "state": "review" },
+    { "name": "leave_session", "state": "review" },
+    { "name": "pull_messages", "state": "review" },
     { "name": "list_peers", "state": "inherit" },
     { "name": "session_info", "state": "inherit" },
     { "name": "memory_get", "state": "inherit" },
@@ -43,6 +44,7 @@
     "https://www.npmjs.com/package/lattice-talk"
   ],
   "saferAlternatives": [
-    "Keep tell_agent, tell_room, create_room, memory_set, and memory_note on review unless agents on this device need to write to the shared bus without confirmation."
+    "Keep messaging, membership changes, message cursor updates, and memory writes on review unless agents on this device need those shared-state mutations without confirmation.",
+    "Configure npx with lattice-talk@0.1.18; unpinned or mismatched releases do not receive this contribution's defaults."
   ]
 }

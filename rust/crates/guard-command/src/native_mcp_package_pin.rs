@@ -1,0 +1,53 @@
+//! Exact stable npm pins for authored MCP launch metadata.
+
+pub(crate) fn valid_package_pin(command: &str, package: &str, version: &str) -> bool {
+    if !matches!(command, "npx" | "npm" | "pnpm" | "yarn" | "bunx")
+        || package.len() > 256
+        || version.len() > 64
+    {
+        return false;
+    }
+    let components: Vec<_> = version.split('.').collect();
+    if components.len() != 3
+        || components.iter().any(|part| {
+            part.is_empty()
+                || !part.bytes().all(|byte| byte.is_ascii_digit())
+                || (part.len() > 1 && part.starts_with('0'))
+        })
+    {
+        return false;
+    }
+    let name = if let Some(scoped) = package.strip_prefix('@') {
+        let Some((scope, name)) = scoped.split_once('/') else {
+            return false;
+        };
+        if scope.is_empty() || !scope.bytes().all(package_character) {
+            return false;
+        }
+        name
+    } else {
+        package
+    };
+    !name.is_empty()
+        && name.as_bytes()[0].is_ascii_alphanumeric()
+        && name.bytes().all(package_character)
+}
+
+pub(crate) fn configured_package_pin(identity: &serde_json::Value) -> Option<String> {
+    let identity = identity.as_object()?;
+    let command = identity.get("command")?.as_str()?;
+    let package = identity.get("package_name")?.as_str()?;
+    let version = identity.get("package_version")?.as_str()?;
+    let launcher = crate::mcp_decision::package_launcher_name(command)?;
+    if identity.get("package_source")?.as_str()? != "default"
+        || identity.get("transport")?.as_str()? != "stdio"
+        || !valid_package_pin(&launcher, package, version)
+    {
+        return None;
+    }
+    Some(format!("{launcher}:{package}@{version}"))
+}
+
+fn package_character(byte: u8) -> bool {
+    byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-')
+}
