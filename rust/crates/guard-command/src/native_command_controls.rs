@@ -25,12 +25,6 @@ pub struct CompiledNativeCommandControls {
     rule_indices: BTreeMap<String, usize>,
 }
 
-#[derive(Default)]
-pub(crate) struct McpPackageEvidence<'a> {
-    pub names: &'a [String],
-    pub pins: &'a [String],
-}
-
 impl CompiledNativeCommandControls {
     pub fn new(binding: &NativeCommandControlBindingV1) -> Result<Self, &'static str> {
         Self::for_program(binding, packaged_command_program()?)
@@ -203,10 +197,7 @@ impl CompiledNativeCommandControls {
             command,
             result,
             tool,
-            McpPackageEvidence {
-                names: packages,
-                pins: &[],
-            },
+            packages,
             deadline,
             crate::pretool::PathContext::default(),
         )
@@ -217,7 +208,7 @@ impl CompiledNativeCommandControls {
         command: Option<&CanonicalCommandV1>,
         mut result: PreToolResultV1,
         tool: Option<&str>,
-        packages: McpPackageEvidence<'_>,
+        packages: &[String],
         deadline: Option<Instant>,
         context: crate::pretool::PathContext<'_>,
     ) -> PreToolResultV1 {
@@ -238,7 +229,7 @@ impl CompiledNativeCommandControls {
             },
         };
         let delegated_floor = if batch.evaluation_error.is_none() {
-            match self.delegated_observations(command, tool, &packages, &mut batch, deadline) {
+            match self.delegated_observations(command, tool, packages, &mut batch, deadline) {
                 Ok(action) => action,
                 Err(_) => {
                     batch = NativeCommandObservationBatchV1 {

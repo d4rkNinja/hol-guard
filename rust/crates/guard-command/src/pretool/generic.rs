@@ -277,17 +277,21 @@ fn evaluate_envelope(
         .as_ref()
         .and_then(|decision| decision.as_ref().ok())
         .map(|decision| &decision.command_model);
-    let mut result = match controls {
-        Some(controls) => controls.apply_with_tool_and_context(
-            command_model,
+    let mut result = match (controls, command_model) {
+        (Some(controls), Some(model)) => controls.apply_with_tool_and_context(
+            Some(model),
             result,
             signals.tool_name.as_deref(),
-            crate::native_command_controls::McpPackageEvidence {
-                names: &signals.package_values,
-                pins: &signals.mcp_package_pins,
-            },
+            &signals.package_values,
             deadline,
             super::PathContext { home_dir, cwd },
+        ),
+        (Some(controls), _) => controls.apply_with_tool(
+            None,
+            result,
+            signals.tool_name.as_deref(),
+            &signals.package_values,
+            deadline,
         ),
         _ => result,
     };
