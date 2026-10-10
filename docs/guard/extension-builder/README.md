@@ -22,7 +22,7 @@ For a command contribution, edit or review these files:
 | --- | --- |
 | `contributions/command-sources/command.<name>.json` | Authoritative `guard.command-extension-source.v1` metadata and matcher trees |
 | `tests/fixtures/command-source-<slug>.v1.json` | `guard.command-extension-fixtures.v1` cases evaluated by native policy |
-| `contracts/extensions/trust-class-map.v1.json` | Separately reviewed trust and activation class |
+| `contracts/extensions/trust/<extension-id>.v1.json` | Separately reviewed trust and activation class; builds derive the shared map |
 | `contributions/extensions/command.<name>.json` | Generated `guard.extension-contribution.v2` descriptor |
 | `contracts/extensions/native-command-program.v1.json` | Generated admitted matcher program |
 | `contracts/extensions/command-catalog.v1.json` | Generated catalog projection |
@@ -87,9 +87,10 @@ For a runnable source addition, use the checked-in synthetic source, the
 separately reviewed trust map, and the compiler's packaged baseline:
 
 ```sh
+rust/target/release/guard-command-source export-trust > contracts/extensions/build-trust-class-map.v1.json
 jq -n \
   --slurpfile source rust/crates/guard-command/tests/fixtures/command-source-example.v1.json \
-  --slurpfile trust contracts/extensions/trust-class-map.v1.json \
+  --slurpfile trust contracts/extensions/build-trust-class-map.v1.json \
   '{schema:"guard.command-extension-build.v1",sources:$source,mcp_sources:[],trust:$trust[0],base:"packaged"}' \
   > source-build.json
 
@@ -268,7 +269,7 @@ Keep `schemaVersion`, `discoveryDigest`, all operation IDs, and every other
 entry intact. The example URL describes the synthetic fixture; a real review
 must cite the actual upstream reference. CLI states are `review` or `block`;
 safe invocations use `safeArgv` on a reviewed `review` entry, excluding the
-executable. MCP states are `inherit`, `allow`, or `block` and do not use
+executable. MCP states are `inherit`, `allow`, `review`, or `block` and do not use
 `safeArgv`. These profile choices still operate within Guard's host policy and
 authenticated controls.
 

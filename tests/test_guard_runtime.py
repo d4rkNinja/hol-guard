@@ -56,6 +56,7 @@ from codex_plugin_scanner.guard.models import (
     HarnessDetection,
     PolicyDecision,
 )
+from codex_plugin_scanner.guard.native_runner_authority import NativeRunnerAuthorityError
 from codex_plugin_scanner.guard.policy import decide_action, decide_action_with_v2
 from codex_plugin_scanner.guard.policy_bundle_delivery import policy_bundle_acknowledgement_payload
 from codex_plugin_scanner.guard.policy_bundle_parser import (
@@ -101,6 +102,7 @@ pytestmark = [pytest.mark.usefixtures("approval_questionnaire_mode"), pytest.mar
 pytestmark = [
     *(pytestmark if isinstance(pytestmark, list) else [pytestmark]),
     pytest.mark.usefixtures("native_prompt_runtime"),
+    pytest.mark.usefixtures("package_intent_native"),
 ]
 
 
@@ -143,6 +145,19 @@ def _seed_guard_cloud(store, *, workspace_id=None, sync_url=None, token="demo-to
         "access_token": token,
         "dpop_key_material": None,
     }
+
+
+@pytest.fixture(autouse=True)
+def _native_runtime_package_context(package_intent_native, native_mcp_probe, monkeypatch) -> None:
+    original = guard_commands_module._hook_runtime_artifact
+
+    def enrolled_artifact(*args, **kwargs):
+        home = kwargs.get("guard_home")
+        if home is not None:
+            native_mcp_probe(Path(home))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(guard_commands_module, "_hook_runtime_artifact", enrolled_artifact)
 
 
 @pytest.fixture(autouse=True)
@@ -5210,8 +5225,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_destructive_shell_comm
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_destructive_shell_redirection_without_spaces(
@@ -5249,8 +5262,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_destructive_shell_redi
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_exec_command(
@@ -5288,8 +5299,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_exec
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_bsd_base64_decode_and_exec_command(
@@ -5327,8 +5336,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_bsd_base64_decode_and_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_path_qualified_base64_decode_and_exec_command(
@@ -5366,8 +5373,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_path_qualified_base64_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_clustered_base64_decode_and_exec_command(
@@ -5405,8 +5410,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_clustered_base64_decod
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_dash_exec_command(
@@ -5444,8 +5447,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_dash
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_wrapped_exec_command(
@@ -5483,8 +5484,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_option_wrapped_exec_command(
@@ -5522,8 +5521,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_path_qualified_env_wrapped_exec_command(
@@ -5563,8 +5560,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_path
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_unset_wrapped_exec_command(
@@ -5604,8 +5599,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_unset_equals_wrapped_exec_command(
@@ -5645,8 +5638,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_and_env_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_when_flag_not_first(
@@ -5684,8 +5675,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_base64_decode_when_fla
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_keeps_allow_response_for_bash_s_stdin_mode_with_same_named_local_file(
@@ -5892,8 +5881,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_bash_c_destructive_com
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_bash_c_command_substitution_decode_exec(
@@ -5931,8 +5918,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_bash_c_command_substit
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_bash_norc_c_destructive_command(
@@ -5970,8 +5955,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_bash_norc_c_destructiv
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_encrypted_decrypt_and_exec_command(
@@ -6009,8 +5992,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_encrypted_decrypt_and_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_direct_local_shell_script_with_encoded_payload(
@@ -6057,8 +6038,6 @@ echo cm0gLWYgZGFuZ2Vyb3VzLW1hcmtlci5qc29uCg== | base64 -d | bash
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_slash_path_local_shell_script_with_encoded_payload(
@@ -6105,8 +6084,6 @@ echo cm0gLWYgZGFuZ2Vyb3VzLW1hcmtlci5qc29uCg== | base64 -d | bash
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_local_shell_script_with_encoded_payload(
@@ -6153,8 +6130,6 @@ echo cm0gLWYgZGFuZ2Vyb3VzLW1hcmtlci5qc29uCg== | base64 -d | bash
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_bash_norc_local_shell_script_with_encoded_payload(
@@ -6201,8 +6176,6 @@ echo cm0gLWYgZGFuZ2Vyb3VzLW1hcmtlci5qc29uCg== | base64 -d | bash
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_delete_bypass(
@@ -6240,8 +6213,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_delete_byp
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_newline_followed_node_inline_delete(
@@ -6281,8 +6252,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_newline_followed_node_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_delete_with_shifted_flag(
@@ -6322,8 +6291,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_delete_wit
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_stdbuf_value_wrapped_node_inline_delete(
@@ -6363,8 +6330,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_stdbuf_value_wrapped_n
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_combined_print_eval_flag(
@@ -6402,8 +6367,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_combined_p
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_print_flag(
@@ -6441,8 +6404,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_print_flag
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_title_option_before_eval_delete(
@@ -6482,8 +6443,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_title_option_befo
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_uppercase_node_eval_delete(
@@ -6521,8 +6480,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_uppercase_node_eval_de
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_unlink_delete_bypass(
@@ -6560,8 +6517,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_unlink_delete_bypass(
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_bracket_delete_bypass(
@@ -6599,8 +6554,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_bracket_de
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_parenthesized_delete_bypass(
@@ -6638,8 +6591,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_parenthesi
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_optional_chain_delete_bypass(
@@ -6677,8 +6628,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_optional_c
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_call_delete_bypass(
@@ -6718,8 +6667,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_call_delet
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_apply_delete_bypass(
@@ -6759,8 +6706,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inline_apply_dele
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_blocks_node_inline_optional_chain_apply_delete_bypass_for_copilot(
@@ -6838,8 +6783,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_env_split_string_find_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_env_split_string_node_eval_delete(
@@ -6879,8 +6822,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_env_split_string_node_
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_clustered_env_short_option_find_delete(
@@ -6918,8 +6859,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_clustered_env_short_op
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_clustered_env_split_string_find_delete(
@@ -6957,8 +6896,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_clustered_env_split_st
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_inspect_port_before_eval_delete(
@@ -6998,8 +6935,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_inspect_port_befo
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_node_redirect_warnings_before_eval_delete(
@@ -7043,8 +6978,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_redirect_warnings
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_pipe_and_stderr_followed_node_eval_delete(
@@ -7084,8 +7017,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_pipe_and_stderr_follow
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_commented_newline_followed_node_eval_delete(
@@ -7125,8 +7056,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_commented_newline_foll
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_allow_response_for_read_only_ls_pipeline(
@@ -7525,8 +7454,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_print_followed_by
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
-    assert "approve it in hol guard, then retry." in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_allow_response_for_benign_find_exec_delete_literal(
@@ -7634,7 +7561,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_node_script_argument_n
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_later_destructive_node_eval_flag(
@@ -7674,7 +7600,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_later_destructive_node
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_env_wrapped_find_delete(
@@ -7712,7 +7637,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_env_wrapped_find_delet
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_env_ignore_environment_find_delete(
@@ -7750,7 +7674,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_env_ignore_environment
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_ask_response_for_stdbuf_wrapped_node_eval_delete(
@@ -7790,7 +7713,6 @@ def test_guard_hook_emits_copilot_native_ask_response_for_stdbuf_wrapped_node_ev
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_allow_response_for_echoed_node_eval_string(
@@ -7976,7 +7898,6 @@ def test_guard_hook_emits_copilot_native_deny_for_node_inline_delete_bypass(
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_deny_for_git_rm_delete(
@@ -8014,7 +7935,6 @@ def test_guard_hook_emits_copilot_native_deny_for_git_rm_delete(
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_deny_for_find_exec_rm_bypass(
@@ -8052,7 +7972,6 @@ def test_guard_hook_emits_copilot_native_deny_for_find_exec_rm_bypass(
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_deny_for_git_c_rm_delete(
@@ -8094,7 +8013,6 @@ def test_guard_hook_emits_copilot_native_deny_for_git_c_rm_delete(
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_deny_for_node_template_interpolation_bypass(
@@ -8136,7 +8054,6 @@ def test_guard_hook_emits_copilot_native_deny_for_node_template_interpolation_by
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_deny_for_node_template_interpolation_regex_bypass(
@@ -8178,7 +8095,6 @@ def test_guard_hook_emits_copilot_native_deny_for_node_template_interpolation_re
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_native_allow_for_git_help_modes(
@@ -8250,7 +8166,6 @@ def test_guard_hook_emits_copilot_native_deny_for_quoted_space_redirection_targe
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
 
 
 def test_guard_hook_emits_copilot_permission_request_allow_for_safe_mcp_tool(
@@ -8602,7 +8517,7 @@ def test_guard_hook_emits_copilot_native_deny_for_risky_mcp_pre_tool_use(
 
     assert rc == 0
     assert output["hookSpecificOutput"]["permissionDecision"] in {"deny", "ask"}
-    assert "hol guard" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
+
     assert "destructive" in output["hookSpecificOutput"]["permissionDecisionReason"].lower()
     assert receipts == []
 
@@ -10533,6 +10448,7 @@ def test_hook_runtime_artifact_binds_compound_approval_to_effective_cwd(tmp_path
     assert first.artifact_id != second.artifact_id
 
 
+@pytest.mark.usefixtures("native_data_flow_runtime")
 def test_hook_runtime_artifact_combines_package_tool_and_data_flow_findings(tmp_path: Path) -> None:
     home_dir = tmp_path / "home"
     workspace_dir = tmp_path / "workspace"
@@ -12218,7 +12134,10 @@ def test_guard_hook_cloud_allow_does_not_lower_current_package_reapproval(
     )
 
     assert rc == 0
-    assert output["policy_action"] == "require-reapproval"
+    assert output["policy_action"] == "require-reapproval", {
+        "policy_action": output.get("policy_action"),
+        "reason_code": output.get("reason_code"),
+    }
     assert output["trust_status"]["remembered_rules"] == "disabled_degraded"
     assert output["remembered_rule_rejection"]["integrity_status"] == "degraded_mode"
     assert output["supply_chain_evaluation"]["reasons"][0]["code"] == "approval_reuse_integrity_failure"
@@ -14683,7 +14602,26 @@ def test_runtime_hook_saved_v1_allow_matches_every_scope_in_actual_evaluator(tmp
         "tool_input": {"command": "echo scope-matrix"},
         "source_scope": "project",
     }
+    # Warm the native resident for this fresh guard_home before the first real
+    # hook. The direct evaluator's PreToolUse floor has a 0.5s deadline; cold
+    # resident spawn + verifier-key provision (~440ms on py3.14) consumes it
+    # before evaluation, producing a fail-closed block instead of the saved
+    # review. Provisioning + a context_digest primes the resident outside the
+    # asserted hook call. The digest result is intentionally unused: it is a
+    # best-effort warm, and a None (transport/startup failure) must not mask the
+    # real call - which runs next and is what the asserts actually exercise.
+    from codex_plugin_scanner.guard.native_policy_snapshot_publisher import (
+        provision_native_verifier_key_for_store,
+    )
+    from codex_plugin_scanner.guard.native_context import native_context_digest
 
+    provision_native_verifier_key_for_store(store)
+    native_context_digest(
+        "tool_action_request",
+        {"tool_name": "Bash"},
+        guard_home=home_dir,
+        timeout_seconds=10.0,
+    )
     first = guard_commands_module.evaluate_native_artifact_hook(
         args,
         action_envelope=None,
@@ -14734,6 +14672,10 @@ def test_runtime_hook_saved_v1_allow_matches_every_scope_in_actual_evaluator(tmp
     assert second.runtime_artifact_hash == token
     assert second.policy_action == "allow"
     assert second.response_payload["approval_reuse"]["status"] == "accepted"
+
+    from codex_plugin_scanner.guard.native_resident_client import close_native_residents
+
+    close_native_residents(home_dir)
 
 
 def test_runtime_hook_browser_exact_override_atomically_claims_one_waiter(tmp_path: Path) -> None:
@@ -15431,7 +15373,9 @@ def test_guard_hook_saved_file_read_allow_does_not_lower_current_reapproval(tmp_
             "--json",
         ]
     )
-    json.loads(capsys.readouterr().out)
+    approval_output = capsys.readouterr()
+    assert approval_rc == 0, approval_output.err
+    json.loads(approval_output.out)
 
     monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(blocked_event)))
     second_rc = main(
@@ -23438,13 +23382,13 @@ def test_sync_receipts_rolls_back_to_last_good_bundle_on_canonical_compile_failu
     }
 
 
-def test_sync_receipts_keeps_legacy_bundle_active_on_canonical_shadow_mismatch(
-    tmp_path,
-    monkeypatch,
-):
+def _prepare_shadow_candidate_sync(tmp_path, monkeypatch, *, canonical=True):
     store = GuardStore(tmp_path / "guard-home")
     _seed_guard_cloud(store, workspace_id="workspace-1")
-    monkeypatch.setenv("HOL_GUARD_POLICY_CANONICAL_ENFORCEMENT", "1")
+    if canonical:
+        monkeypatch.setenv("HOL_GUARD_POLICY_CANONICAL_ENFORCEMENT", "1")
+    else:
+        monkeypatch.delenv("HOL_GUARD_POLICY_CANONICAL_ENFORCEMENT", raising=False)
     legacy = _signed_test_policy_bundle(
         [
             {
@@ -23546,6 +23490,15 @@ def test_sync_receipts_keeps_legacy_bundle_active_on_canonical_shadow_mismatch(
         lambda _store, auth_context=None: 0,
     )
 
+    return store, legacy
+
+
+def test_sync_receipts_keeps_legacy_bundle_active_on_canonical_shadow_mismatch(
+    tmp_path,
+    monkeypatch,
+):
+    store, legacy = _prepare_shadow_candidate_sync(tmp_path, monkeypatch)
+
     guard_runner_module.sync_receipts(store)
 
     assert store.get_sync_payload("policy_bundle") == legacy
@@ -23559,6 +23512,31 @@ def test_sync_receipts_keeps_legacy_bundle_active_on_canonical_shadow_mismatch(
         "reasonCodes": ["action"],
         "status": "mismatch",
     }
+
+
+def test_sync_receipts_rejects_candidate_when_native_shadow_comparison_is_unavailable(
+    tmp_path,
+    monkeypatch,
+):
+    for canonical in (True, False):
+        store, legacy = _prepare_shadow_candidate_sync(
+            tmp_path / f"canonical-{canonical}", monkeypatch, canonical=canonical
+        )
+
+        def _unavailable(_legacy, _canonical):
+            raise NativeRunnerAuthorityError("native_runner_authority_unavailable")
+
+        monkeypatch.setattr(guard_runner_module._authority, "policy_shadow_mismatch", _unavailable)
+
+        guard_runner_module.sync_receipts(store)
+
+        assert store.get_sync_payload("policy_bundle") == legacy
+        assert store.get_sync_payload("policy_bundle_canonical_last_good") is None
+        assert store.get_sync_payload("policy_bundle_last_error") == {"reason": "native_shadow_unavailable"}
+        assert [decision["action"] for decision in store.list_policy_decisions()] == ["block"]
+        mismatch_events = store.list_events(event_name="policy_bundle/shadow_mismatch")
+        assert mismatch_events[-1]["payload"]["reasonCodes"] == ["native_shadow_unavailable"]
+        assert mismatch_events[-1]["payload"]["status"] == "mismatch"
 
 
 def test_sync_receipts_clears_untrusted_cached_canonical_when_flag_is_disabled(

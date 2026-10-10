@@ -575,17 +575,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
+name = "guard-alloc-probe"
+version = "0.1.0"
+
+[[package]]
 name = "guard-archive"
 version = "0.1.0"
 dependencies = [
  "caseless",
  "flate2",
+ "guard-alloc-probe",
  "guard-secure-fs",
  "hex",
  "regex",
  "serde_json",
  "sha2",
  "tar",
+ "unicode-normalization",
 ]
 
 [[package]]
@@ -670,6 +676,7 @@ dependencies = [
  "getrandom 0.3.4",
  "guard-command",
  "guard-contracts",
+ "guard-scanner",
  "hex",
  "hmac",
  "oauth2",
@@ -758,6 +765,7 @@ name = "guard-secure-fs"
 version = "0.1.0"
 dependencies = [
  "guard-rules",
+ "guard-runtime-windows-process",
  "hex",
  "libc",
  "nix",
@@ -814,12 +822,14 @@ dependencies = [
  "aes",
  "base32ct",
  "base64ct",
+ "caseless",
  "cbc",
  "fs2",
  "getrandom 0.3.4",
  "guard-archive",
  "guard-command",
  "guard-contracts",
+ "guard-google-identity",
  "guard-hook-core",
  "guard-policy-snapshot",
  "guard-rule-contract",
@@ -842,6 +852,8 @@ dependencies = [
  "sha1",
  "sha2",
  "sysinfo",
+ "toml 0.8.23",
+ "unicode-normalization",
  "windows-permissions",
  "zeroize",
 ]
